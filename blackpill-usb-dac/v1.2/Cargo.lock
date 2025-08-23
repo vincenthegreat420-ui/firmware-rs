@@ -298,6 +298,7 @@ version = "0.3.0"
 dependencies = [
  "defmt",
  "embassy-futures",
+ "embassy-hal-internal",
  "embassy-sync",
  "embassy-time",
  "embedded-hal 0.2.7",

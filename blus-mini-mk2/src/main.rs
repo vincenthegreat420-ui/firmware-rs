@@ -353,7 +353,7 @@ async fn main(spawner: Spawner) {
         });
         peripheral_config.rcc.hsi = None;
         peripheral_config.rcc.csi = true;
-        peripheral_config.rcc.hsi48 = None;
+        peripheral_config.rcc.hsi48 = Some(Hsi48Config { sync_from_usb: true });
         peripheral_config.rcc.pll1 = Some(Pll {
             source: PllSource::HSE,
             prediv: PllPreDiv::DIV4,
@@ -383,7 +383,7 @@ async fn main(spawner: Spawner) {
         // 2 (<= 300 MHz)
         // 3 (<= 170 MHz)
         peripheral_config.rcc.voltage_scale = VoltageScale::Scale2;
-        peripheral_config.rcc.mux.usbsel = mux::Usbsel::PLL3_Q;
+        peripheral_config.rcc.mux.usbsel = mux::Usbsel::HSI48; //mux::Usbsel::PLL3_Q;
         peripheral_config.rcc.mux.sai1sel = mux::Saisel::PLL1_Q;
         peripheral_config.rcc.mux.adcsel = mux::Adcsel::PLL3_R;
         peripheral_config.rcc.mux.spdifrxsel = mux::Spdifrxsel::PLL3_R;

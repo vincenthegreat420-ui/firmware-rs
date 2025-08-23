@@ -1,8 +1,10 @@
 {
     "rust-analyzer.linkedProjects": [
-        "blackpill-usb-dac/v1.2/Cargo.toml",
-        "blackpill-usb-dac/v3.1/Cargo.toml",
-        "blus-mini-mk1/Cargo.toml",
-        "blus-mini-mk2/Cargo.toml",
+        // "blackpill-usb-dac/v1.2/Cargo.toml",
+        // "blackpill-usb-dac/v3.1/Cargo.toml",
+        // "blus-mini-mk1/Cargo.toml",
+        // "blus-mini-mk2/Cargo.toml",
+        // "blus-dsp-dac/Cargo.toml",
+        "stm32h5/Cargo.toml"
     ]
 }
