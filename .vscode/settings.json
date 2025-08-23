@@ -5,6 +5,8 @@
         // "blus-mini-mk1/Cargo.toml",
         // "blus-mini-mk2/Cargo.toml",
         // "blus-dsp-dac/Cargo.toml",
-        "stm32h5/Cargo.toml"
+        "stm32h5/Cargo.toml",
+        "dsp-embedded/Cargo.toml",
+        "dsp-gui/Cargo.toml"
     ]
 }

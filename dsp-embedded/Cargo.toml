@@ -1,0 +1,9 @@
+[package]
+name = "dsp-embedded"
+version = "0.1.0"
+edition = "2021"
+
+[dependencies]
+dsp-protocol = { path = "../dsp-protocol", features = ["defmt"] }
+
+biquad = "0.4.2"

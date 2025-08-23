@@ -7,11 +7,19 @@ pub mod usb_audio;
 
 use micromath::F32Ext;
 
-use audio::AudioSource;
 use embassy_sync::blocking_mutex::raw::{CriticalSectionRawMutex, ThreadModeRawMutex};
 use embassy_sync::signal::Signal;
 use embassy_usb::class::uac1;
 use heapless::Vec;
+
+#[derive(Clone, Copy, PartialEq, Debug, defmt::Format)]
+pub enum AudioSource {
+    None,
+    Usb,
+    Spdif,
+    Ext,
+    Rpi,
+}
 
 /// Stereo input.
 pub const INPUT_CHANNEL_COUNT: usize = 2;

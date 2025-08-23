@@ -43,6 +43,7 @@ cortex-m = { version = "0.7.6", features = [
     "inline-asm",
     "critical-section-single-core",
 ] }
+dsp-protocol = { path = "../dsp-protocol", features = ["defmt"] }
 cortex-m-rt = "0.7.0"
 embedded-hal = { package = "embedded-hal", version = "1.0" }
 embedded-hal-async = { version = "1.0" }
@@ -55,6 +56,17 @@ critical-section = "1.1"
 embedded-storage = "0.3.1"
 static_cell = "2"
 micromath = "2.1.0"
+postcard-rpc = { version = "0.11.8", features = ["embassy-usb-0_5-server"] }
+postcard = "1.1.1"
+serde = { version = "1.0.219", default-features = false }
+postcard-schema = "0.2.1"
+
+[patch.crates-io]
+embassy-executor = { path = "../embassy/embassy-executor" }
+embassy-usb = { path = "../embassy/embassy-usb" }
+embassy-usb-driver = { path = "../embassy/embassy-usb-driver" }
+embassy-sync = { path = "../embassy/embassy-sync" }
+embassy-time-driver = { path = "../embassy/embassy-time-driver" }
 
 # cargo build/run
 [profile.dev]

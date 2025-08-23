@@ -4,15 +4,6 @@ pub mod audio_filter;
 
 use micromath::F32Ext;
 
-#[derive(Clone, Copy, PartialEq, Debug, defmt::Format)]
-pub enum AudioSource {
-    None,
-    Usb,
-    Spdif,
-    Ext,
-    Rpi,
-}
-
 pub type BiquadType = biquad::DirectForm2Transposed<f32>;
 pub type AudioFilter<'d> = audio_filter::Filter<'d, BiquadType>;
 

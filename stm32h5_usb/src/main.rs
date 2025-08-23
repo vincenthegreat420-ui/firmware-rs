@@ -3,8 +3,10 @@
 
 use core::cell::{Cell, RefCell};
 
-use defmt::{debug, info, unwrap};
+use defmt::{info, unwrap};
+use dsp_protocol::{Channel, Info, InfoEndpoint, SetChannelEndpoint, ENDPOINT_LIST, TOPICS_IN_LIST, TOPICS_OUT_LIST};
 use embassy_executor::Spawner;
+use embassy_stm32::gpio::Output;
 use embassy_stm32::pac::gpio::vals::{Moder, Ospeedr, Ot, Pupdr};
 use embassy_stm32::pac::GPIOA;
 
@@ -12,15 +14,28 @@ use embassy_stm32::time::Hertz;
 use embassy_stm32::{bind_interrupts, interrupt, peripherals, timer, usb, Config};
 use embassy_stm32h5_examples::audio_routing::SaiResources;
 use embassy_stm32h5_examples::{
-    audio_routing, usb_audio, SampleBlock, AUDIO_CHANNELS, FEEDBACK_COUNTER_TICK_RATE, FEEDBACK_REFRESH_PERIOD,
-    FEEDBACK_SIGNAL, SAMPLE_BLOCK_COUNT, SAMPLE_RATE_HZ, USB_MAX_PACKET_SIZE,
+    audio_routing, usb_audio, Blink, SampleBlock, AUDIO_CHANNELS, BLINK_SIGNAL, CHANNEL_COUNT,
+    FEEDBACK_COUNTER_TICK_RATE, FEEDBACK_REFRESH_PERIOD, FEEDBACK_SIGNAL, SAMPLE_BLOCK_COUNT, SAMPLE_RATE_HZ,
+    USB_MAX_PACKET_SIZE,
 };
-use embassy_sync::blocking_mutex::raw::{CriticalSectionRawMutex, NoopRawMutex};
+use embassy_sync::blocking_mutex::raw::{CriticalSectionRawMutex, NoopRawMutex, ThreadModeRawMutex};
 use embassy_sync::blocking_mutex::Mutex;
 use embassy_sync::channel;
+use embassy_time::Timer;
 use embassy_usb::class::uac1;
 use embassy_usb::class::uac1::speaker::{self, Speaker};
-use static_cell::StaticCell;
+use postcard_rpc::{
+    define_dispatch,
+    header::VarHeader,
+    server::{
+        impls::embassy_usb_v0_5::{
+            dispatch_impl::{WireRxBuf, WireRxImpl, WireSpawnImpl, WireStorage, WireTxImpl},
+            PacketBuffers,
+        },
+        Dispatch, Server,
+    },
+};
+use static_cell::{ConstStaticCell, StaticCell};
 use {defmt_rtt as _, panic_probe as _};
 
 bind_interrupts!(struct Irqs {
@@ -29,6 +44,16 @@ bind_interrupts!(struct Irqs {
 
 static TIMER: Mutex<CriticalSectionRawMutex, RefCell<Option<timer::low_level::Timer<peripherals::TIM2>>>> =
     Mutex::new(RefCell::new(None));
+
+#[embassy_executor::task]
+async fn app_task(mut server: AppServer) {
+    loop {
+        // If the host disconnects, we'll return an error here.
+        // If this happens, just wait until the host reconnects
+        let _ = server.run().await;
+        Timer::after_millis(100).await;
+    }
+}
 
 /// Feedback value measurement and calculation
 ///
@@ -63,6 +88,78 @@ fn TIM2() {
         // Clear trigger interrupt flag.
         timer.sr().modify(|r| r.set_tif(false));
     });
+}
+
+pub struct Context;
+
+type AppDriver = usb::Driver<'static, peripherals::USB>;
+type AppStorage = WireStorage<ThreadModeRawMutex, AppDriver, 256, 256, 64, 256>;
+type BufStorage = PacketBuffers<1024, 1024>;
+type AppTx = WireTxImpl<ThreadModeRawMutex, AppDriver>;
+type AppRx = WireRxImpl<AppDriver>;
+type AppServer = Server<AppTx, AppRx, WireRxBuf, MyApp>;
+
+static PBUFS: ConstStaticCell<BufStorage> = ConstStaticCell::new(BufStorage::new());
+static STORAGE: AppStorage = AppStorage::new();
+
+fn set_channel_handler(_context: &mut Context, _header: VarHeader, rqst: Channel) {
+    info!("Channel: {:?}", rqst);
+}
+
+fn info_handler(_context: &mut Context, _header: VarHeader, _rqst: ()) -> Info {
+    Info {
+        channel_count: CHANNEL_COUNT as _,
+        input_count: CHANNEL_COUNT as _,
+        sample_rate_hz: SAMPLE_RATE_HZ,
+    }
+}
+
+define_dispatch! {
+    app: MyApp;
+    spawn_fn: spawn_fn;
+    tx_impl: AppTx;
+    spawn_impl: WireSpawnImpl;
+    context: Context;
+
+    endpoints: {
+        list: ENDPOINT_LIST;
+
+        | EndpointTy                | kind      | handler                       |
+        | ----------                | ----      | -------                       |
+        | InfoEndpoint              | blocking  | info_handler                  |
+        | SetChannelEndpoint        | blocking  | set_channel_handler           |
+    };
+    topics_in: {
+        list: TOPICS_IN_LIST;
+
+        | TopicTy                   | kind      | handler                       |
+        | ----------                | ----      | -------                       |
+    };
+    topics_out: {
+        list: TOPICS_OUT_LIST;
+    };
+}
+
+#[embassy_executor::task]
+async fn blinky_task(mut led_red: Output<'static>, mut led_yellow: Output<'static>, mut led_green: Output<'static>) {
+    // Say hi with LEDs.
+    for led in [&mut led_red, &mut led_yellow, &mut led_green] {
+        led.set_high();
+        Timer::after_millis(100).await;
+        led.set_low();
+    }
+
+    loop {
+        let led = match BLINK_SIGNAL.wait().await {
+            Blink::Red => &mut led_red,
+            Blink::Yellow => &mut led_yellow,
+            Blink::Green => &mut led_green,
+        };
+
+        led.set_high();
+        Timer::after_secs(1).await;
+        led.set_low();
+    }
 }
 
 // If you are trying this and your USB device doesn't connect, the most
@@ -124,27 +221,16 @@ async fn main(spawner: Spawner) {
 
     info!("Hi");
 
-    // Configure all required buffers in a static way.
-    debug!("USB packet size is {} byte", USB_MAX_PACKET_SIZE);
-    static CONFIG_DESCRIPTOR: StaticCell<[u8; 256]> = StaticCell::new();
-    let config_descriptor = CONFIG_DESCRIPTOR.init([0; 256]);
-
-    static BOS_DESCRIPTOR: StaticCell<[u8; 32]> = StaticCell::new();
-    let bos_descriptor = BOS_DESCRIPTOR.init([0; 32]);
-
-    const CONTROL_BUF_SIZE: usize = 64;
-    static CONTROL_BUF: StaticCell<[u8; CONTROL_BUF_SIZE]> = StaticCell::new();
-    let control_buf = CONTROL_BUF.init([0; CONTROL_BUF_SIZE]);
-
-    static STATE: StaticCell<speaker::State> = StaticCell::new();
-    let state = STATE.init(speaker::State::new());
+    static SPEAKER_STATE: StaticCell<speaker::State> = StaticCell::new();
+    let speaker_state = SPEAKER_STATE.init(speaker::State::new());
 
     let usb_driver = usb::Driver::new_with_sof(p.USB, Irqs, p.PA12, p.PA11, p.PA8);
+    let pbufs = PBUFS.take();
 
     // Basic USB device configuration
     let mut config = embassy_usb::Config::new(0xc0de, 0xcafe);
     config.manufacturer = Some("Embassy");
-    config.product = Some("USB-audio-speaker example");
+    config.product = Some("usb-dsp");
     config.serial_number = Some("12345678");
 
     // Required for windows compatibility.
@@ -154,19 +240,16 @@ async fn main(spawner: Spawner) {
     config.device_protocol = 0x01;
     config.composite_with_iads = true;
 
-    let mut builder = embassy_usb::Builder::new(
-        usb_driver,
-        config,
-        config_descriptor,
-        bos_descriptor,
-        &mut [], // no msos descriptors
-        control_buf,
-    );
+    let context = Context;
+    let (mut builder, tx_impl, rx_impl) = STORAGE.init_without_build(usb_driver, config, pbufs.tx_buf.as_mut_slice());
+    let dispatcher = MyApp::new(context, spawner.into());
+    let vkk = dispatcher.min_key_len();
+    let server: AppServer = Server::new(tx_impl, rx_impl, pbufs.rx_buf.as_mut_slice(), dispatcher, vkk);
 
     // Create the UAC1 Speaker class components
     let (stream, feedback, control_monitor) = Speaker::new(
         &mut builder,
-        state,
+        speaker_state,
         USB_MAX_PACKET_SIZE as u16,
         uac1::SampleWidth::Width4Byte,
         &[SAMPLE_RATE_HZ],
@@ -230,6 +313,12 @@ async fn main(spawner: Spawner) {
         dma_a: p.GPDMA1_CH1,
     };
 
+    unwrap!(spawner.spawn(blinky_task(
+        Output::new(p.PG4, embassy_stm32::gpio::Level::Low, embassy_stm32::gpio::Speed::Low),
+        Output::new(p.PF4, embassy_stm32::gpio::Level::Low, embassy_stm32::gpio::Speed::Low),
+        Output::new(p.PB0, embassy_stm32::gpio::Level::Low, embassy_stm32::gpio::Speed::Low)
+    )));
+
     // Launch USB audio tasks.
     unwrap!(spawner.spawn(usb_audio::control_task(control_monitor)));
     unwrap!(spawner.spawn(usb_audio::streaming_task(stream, audio_channel.sender())));
@@ -239,4 +328,7 @@ async fn main(spawner: Spawner) {
         audio_channel.receiver(),
         sai_resources
     )));
+
+    // Launch DSP app.
+    unwrap!(spawner.spawn(app_task(server)));
 }
