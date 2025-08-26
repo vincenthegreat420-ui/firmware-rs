@@ -5,6 +5,7 @@ use core::cell::{Cell, RefCell};
 
 use defmt::{debug, info, unwrap};
 use embassy_executor::Spawner;
+use embassy_stm32::gpio::Output;
 use embassy_stm32::pac::gpio::vals::{Moder, Ospeedr, Ot, Pupdr};
 use embassy_stm32::pac::GPIOA;
 
@@ -12,12 +13,13 @@ use embassy_stm32::time::Hertz;
 use embassy_stm32::{bind_interrupts, interrupt, peripherals, timer, usb, Config};
 use embassy_stm32h5_examples::audio_routing::SaiResources;
 use embassy_stm32h5_examples::{
-    audio_routing, usb_audio, SampleBlock, AUDIO_CHANNELS, FEEDBACK_COUNTER_TICK_RATE, FEEDBACK_REFRESH_PERIOD,
-    FEEDBACK_SIGNAL, SAMPLE_BLOCK_COUNT, SAMPLE_RATE_HZ, USB_MAX_PACKET_SIZE,
+    audio_routing, usb_audio, Blink, SampleBlock, AUDIO_CHANNELS, BLINK_SIGNAL, FEEDBACK_COUNTER_TICK_RATE,
+    FEEDBACK_REFRESH_PERIOD, FEEDBACK_SIGNAL, SAMPLE_BLOCK_COUNT, SAMPLE_RATE_HZ, USB_MAX_PACKET_SIZE,
 };
 use embassy_sync::blocking_mutex::raw::{CriticalSectionRawMutex, NoopRawMutex};
 use embassy_sync::blocking_mutex::Mutex;
 use embassy_sync::channel;
+use embassy_time::Timer;
 use embassy_usb::class::uac1;
 use embassy_usb::class::uac1::speaker::{self, Speaker};
 use static_cell::StaticCell;
@@ -63,6 +65,28 @@ fn TIM2() {
         // Clear trigger interrupt flag.
         timer.sr().modify(|r| r.set_tif(false));
     });
+}
+
+#[embassy_executor::task]
+async fn blinky_task(mut led_red: Output<'static>, mut led_yellow: Output<'static>, mut led_green: Output<'static>) {
+    // Say hi with LEDs.
+    for led in [&mut led_red, &mut led_yellow, &mut led_green] {
+        led.set_high();
+        Timer::after_millis(100).await;
+        led.set_low();
+    }
+
+    loop {
+        let led = match BLINK_SIGNAL.wait().await {
+            Blink::Red => &mut led_red,
+            Blink::Yellow => &mut led_yellow,
+            Blink::Green => &mut led_green,
+        };
+
+        led.set_high();
+        Timer::after_secs(1).await;
+        led.set_low();
+    }
 }
 
 // If you are trying this and your USB device doesn't connect, the most
@@ -224,11 +248,17 @@ async fn main(spawner: Spawner) {
 
     let sai_resources = SaiResources {
         sai: p.SAI1,
-        sck_a: p.PF8,
-        sd_a: p.PE3,
-        fs_a: p.PF9,
-        dma_a: p.GPDMA1_CH1,
+        sck_b: p.PF8,
+        sd_b: p.PE3,
+        fs_b: p.PF9,
+        dma_b: p.GPDMA1_CH1,
     };
+
+    unwrap!(spawner.spawn(blinky_task(
+        Output::new(p.PG4, embassy_stm32::gpio::Level::Low, embassy_stm32::gpio::Speed::Low),
+        Output::new(p.PF4, embassy_stm32::gpio::Level::Low, embassy_stm32::gpio::Speed::Low),
+        Output::new(p.PB0, embassy_stm32::gpio::Level::Low, embassy_stm32::gpio::Speed::Low)
+    )));
 
     // Launch USB audio tasks.
     unwrap!(spawner.spawn(usb_audio::control_task(control_monitor)));
