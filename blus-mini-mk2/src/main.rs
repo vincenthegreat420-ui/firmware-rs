@@ -16,7 +16,7 @@ use embassy_stm32::gpio::{Input, Level, Output, Pull, Speed};
 use embassy_stm32::mode::Async;
 use embassy_stm32::spdifrx::{self, Spdifrx};
 use embassy_stm32::time::Hertz;
-use embassy_stm32::{bind_interrupts, i2c, interrupt, peripherals, timer, usb};
+use embassy_stm32::{Peri, bind_interrupts, i2c, interrupt, peripherals, timer, usb};
 use embassy_sync::blocking_mutex::raw::{CriticalSectionRawMutex, NoopRawMutex};
 use embassy_sync::blocking_mutex::{Mutex, NoopMutex};
 use embassy_sync::channel;
@@ -37,20 +37,20 @@ bind_interrupts!(struct Irqs {
 
 static TIMER: Mutex<CriticalSectionRawMutex, RefCell<Option<timer::low_level::Timer<peripherals::TIM2>>>> =
     Mutex::new(RefCell::new(None));
-static I2C_BUS: StaticCell<NoopMutex<RefCell<i2c::I2c<'static, Async>>>> = StaticCell::new();
+static I2C_BUS: StaticCell<NoopMutex<RefCell<i2c::I2c<'static, Async, i2c::mode::Master>>>> = StaticCell::new();
 
 // Accessible by most system masters (Zone D2)
-#[link_section = ".sram1"]
+#[unsafe(link_section = ".sram1")]
 static ADC1_MEASUREMENT_BUFFER: GroundedArrayCell<u16, 1> = GroundedArrayCell::uninit();
 
 // Reserve twice the SPDIF sample count, since the DMA will transfer at
 // half-full interrupt (so, at SPDIF_SAMPLE_COUNT * 2 / 2).
-#[link_section = ".sram1"]
+#[unsafe(link_section = ".sram1")]
 static SPDIFRX_BUFFER: GroundedArrayCell<u32, { DEFAULT_SAMPLE_COUNT * 2 }> = GroundedArrayCell::uninit();
 
 #[allow(unused)]
 struct AmplifierResources {
-    i2c: i2c::I2c<'static, Async>,
+    i2c: i2c::I2c<'static, Async, i2c::mode::Master>,
     pin_nsd: Output<'static>,
     pin_irqz: Input<'static>,
 }
@@ -58,15 +58,15 @@ struct AmplifierResources {
 #[allow(unused)]
 struct AdcResources<T: adc::Instance> {
     adc: adc::Adc<'static, T>,
-    pin: adc::AnyAdcChannel<T>,
-    dma: peripherals::DMA1_CH0,
+    pin: adc::AnyAdcChannel<'static, T>,
+    dma: Peri<'static, peripherals::DMA1_CH0>,
 }
 
 #[allow(unused)]
 struct SpdifResources {
-    spdifrx: peripherals::SPDIFRX1,
-    in_pin: peripherals::PD7,
-    dma: peripherals::DMA1_CH1,
+    spdifrx: Peri<'static, peripherals::SPDIFRX1>,
+    in_pin: Peri<'static, peripherals::PD7>,
+    dma: Peri<'static, peripherals::DMA1_CH1>,
 }
 
 /// Get audio filters for a given sample rate.
@@ -277,7 +277,7 @@ async fn potentiometer_task(mut adc_resources: AdcResources<peripherals::ADC1>) 
         adc_resources
             .adc
             .read(
-                &mut adc_resources.dma,
+                adc_resources.dma.reborrow(),
                 [(&mut adc_resources.pin, adc::SampleTime::CYCLES810_5)].into_iter(),
                 buffer,
             )
@@ -304,11 +304,11 @@ async fn spdif_task(
 
     fn new_spdif<'d>(resources: &'d mut SpdifResources, buffer: &'d mut [u32]) -> Spdifrx<'d, peripherals::SPDIFRX1> {
         Spdifrx::new(
-            &mut resources.spdifrx,
+            resources.spdifrx.reborrow(),
             Irqs,
             spdifrx::Config::default(),
-            &mut resources.in_pin,
-            &mut resources.dma,
+            resources.in_pin.reborrow(),
+            resources.dma.reborrow(),
             buffer,
         )
     }
@@ -525,17 +525,10 @@ async fn main(spawner: Spawner) {
         dma_b: p.BDMA_CH1,
     };
 
+    let mut i2c_config = i2c::Config::default();
+    i2c_config.frequency = Hertz(1_000_000);
     let amplifier_resources = AmplifierResources {
-        i2c: i2c::I2c::new(
-            p.I2C1,
-            p.PB6,
-            p.PB7,
-            Irqs,
-            p.DMA2_CH0,
-            p.DMA2_CH1,
-            Hertz(1_000_000),
-            Default::default(),
-        ),
+        i2c: i2c::I2c::new(p.I2C1, p.PB6, p.PB7, Irqs, p.DMA2_CH0, p.DMA2_CH1, i2c_config),
         pin_nsd: Output::new(p.PC13, Level::Low, Speed::Low),
         pin_irqz: Input::new(p.PC14, Pull::None),
     };

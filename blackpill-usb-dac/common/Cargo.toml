@@ -1,5 +1,5 @@
 [package]
-edition = "2021"
+edition = "2024"
 name = "blackpill-common"
 version = "0.1.0"
 license = "GPL-3.0"
@@ -7,12 +7,12 @@ license = "GPL-3.0"
 [dependencies]
 audio = { path = "../../audio" }
 
-embassy-stm32 = { path = "../../embassy/embassy-stm32" }
-embassy-sync = { path = "../../embassy/embassy-sync", features = ["defmt"] }
-embassy-usb = { path = "../../embassy/embassy-usb", features = ["defmt"] }
-embassy-executor = { path = "../../embassy/embassy-executor" }
+embassy-stm32 = "0.5.0"
+embassy-sync = { version = "0.7.2", features = ["defmt"] }
+embassy-usb = { version = "0.5.1", features = ["defmt"] }
+embassy-executor = { version = "0.9.1" }
 
 micromath = "2.1.0"
-heapless = { version = "0.8", default-features = false }
-defmt = "0.3"
-defmt-rtt = "0.4"
+heapless = { version = "0.9.2", default-features = false }
+defmt = "1"
+defmt-rtt = "1"

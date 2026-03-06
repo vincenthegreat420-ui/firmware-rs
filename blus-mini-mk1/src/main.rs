@@ -30,12 +30,12 @@ bind_interrupts!(struct Irqs {
 
 static TIMER: Mutex<CriticalSectionRawMutex, RefCell<Option<timer::low_level::Timer<peripherals::TIM2>>>> =
     Mutex::new(RefCell::new(None));
-static I2C_BUS: StaticCell<NoopMutex<RefCell<i2c::I2c<'static, Async>>>> = StaticCell::new();
+static I2C_BUS: StaticCell<NoopMutex<RefCell<i2c::I2c<'static, Async, i2c::mode::Master>>>> = StaticCell::new();
 static DMA_BUFFER: StaticCell<[u16; 4 * USB_MAX_SAMPLE_COUNT]> = StaticCell::new();
 
 #[allow(unused)]
 struct AmplifierResources {
-    i2c: i2c::I2c<'static, Async>,
+    i2c: i2c::I2c<'static, Async, i2c::mode::Master>,
     pin_nsd: Output<'static>,
 }
 
@@ -211,16 +211,7 @@ async fn main(spawner: Spawner) {
     let usb_device = builder.build();
 
     let amplifier_resources = AmplifierResources {
-        i2c: i2c::I2c::new(
-            p.I2C1,
-            p.PB6,
-            p.PB7,
-            Irqs,
-            p.DMA1_CH6,
-            p.DMA1_CH0,
-            Hertz(100_000),
-            Default::default(),
-        ),
+        i2c: i2c::I2c::new(p.I2C1, p.PB6, p.PB7, Irqs, p.DMA1_CH6, p.DMA1_CH0, Default::default()),
         pin_nsd: Output::new(p.PB14, Level::Low, Speed::Low),
     };
 
