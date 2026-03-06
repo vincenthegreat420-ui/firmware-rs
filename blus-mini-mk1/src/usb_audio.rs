@@ -1,5 +1,7 @@
+//! USB audio interface module.
+
 use audio::db_to_linear;
-use defmt::{debug, panic};
+use defmt::debug;
 use embassy_stm32::{peripherals, usb};
 use embassy_sync::blocking_mutex::raw::NoopRawMutex;
 use embassy_sync::zerocopy_channel;
@@ -87,7 +89,9 @@ async fn stream_handler<'d, T: usb::Instance + 'd>(
     }
 }
 
+/// USB streaming task.
 #[embassy_executor::task]
+#[allow(missing_docs)]
 pub async fn streaming_task(
     mut stream: speaker::Stream<'static, usb::Driver<'static, peripherals::USB_OTG_FS>>,
     mut sender: zerocopy_channel::Sender<'static, NoopRawMutex, UsbSampleBlock>,
@@ -98,7 +102,9 @@ pub async fn streaming_task(
     }
 }
 
+/// USB feedback task.
 #[embassy_executor::task]
+#[allow(missing_docs)]
 pub async fn feedback_task(mut feedback: speaker::Feedback<'static, usb::Driver<'static, peripherals::USB_OTG_FS>>) {
     let feedback_factor =
         ((1 << FEEDBACK_SHIFT) as f32 / TICKS_PER_SAMPLE) / FEEDBACK_REFRESH_PERIOD.frame_count() as f32;
@@ -109,7 +115,9 @@ pub async fn feedback_task(mut feedback: speaker::Feedback<'static, usb::Driver<
     }
 }
 
+/// USB device task.
 #[embassy_executor::task]
+#[allow(missing_docs)]
 pub async fn usb_task(mut usb_device: embassy_usb::UsbDevice<'static, usb::Driver<'static, peripherals::USB_OTG_FS>>) {
     usb_device.run().await;
 }
