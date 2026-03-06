@@ -16,6 +16,8 @@ jobs:
         with:
           submodules: true
 
+      - run: rustup toolchain install nightly -c rustfmt
+
       - name: Install dependencies
         run: cargo install cargo-binutils
 
