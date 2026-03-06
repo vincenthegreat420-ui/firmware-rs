@@ -46,10 +46,11 @@ pub struct Sai4Resources {
     pub dma_b: Peri<'static, peripherals::BDMA_CH1>,
 }
 
-// Accessible by BDMA (Zone D3)
+// SAFETY: Link section places SAI buffer in SRAM4 (Zone D3), which is accessible by BDMA.
 #[unsafe(link_section = ".sram4")]
 static SAI_AMP_WRITE_BUFFER: GroundedArrayCell<u32, SAI_AMP_SAMPLE_COUNT> = GroundedArrayCell::uninit();
 
+// SAFETY: Link section places SAI buffer in SRAM4 (Zone D3), which is accessible by BDMA.
 #[unsafe(link_section = ".sram4")]
 static SAI_RPI_READ_BUFFER: GroundedArrayCell<u32, DEFAULT_SAMPLE_COUNT> = GroundedArrayCell::uninit();
 
@@ -194,12 +195,16 @@ pub async fn audio_routing_task(
     debug!("Amplifier SAI write buffer: {} samples", SAI_AMP_SAMPLE_COUNT);
     debug!("Default SAI read buffer: {} samples", DEFAULT_SAMPLE_COUNT);
 
+    // SAFETY: Buffer is initialized via GroundedArrayCell before SAI use, and is only
+    // accessed by BDMA and this task. SRAM4 is in Zone D3, accessible by BDMA.
     let sai_amp_write_buffer: &mut [u32] = unsafe {
         SAI_AMP_WRITE_BUFFER.initialize_all_copied(0);
         let (ptr, len) = SAI_AMP_WRITE_BUFFER.get_ptr_len();
         core::slice::from_raw_parts_mut(ptr, len)
     };
 
+    // SAFETY: Buffer is initialized via GroundedArrayCell before SAI use, and is only
+    // accessed by BDMA and this task. SRAM4 is in Zone D3, accessible by BDMA.
     let sai_rpi_read_buffer: &mut [u32] = unsafe {
         SAI_RPI_READ_BUFFER.initialize_all_copied(0);
         let (ptr, len) = SAI_RPI_READ_BUFFER.get_ptr_len();
