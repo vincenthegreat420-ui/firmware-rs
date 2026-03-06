@@ -1,3 +1,5 @@
+//! Audio routing functionality.
+
 use audio::audio_filter::{sample_to_f32, sample_to_u32};
 use defmt::info;
 use embassy_stm32::time::Hertz;
@@ -8,7 +10,8 @@ use embassy_time::{Duration, WithTimeout as _};
 
 use crate::*;
 
-#[allow(unused)]
+/// I2S peripheral resources.
+#[allow(missing_docs)]
 pub struct I2sResources<'d> {
     pub i2s: Peri<'static, peripherals::SPI3>,
 
@@ -37,6 +40,7 @@ fn new_i2s<'d>(resources: &'d mut I2sResources) -> i2s::I2S<'d, u16> {
     )
 }
 
+/// Task for audio routing.
 #[embassy_executor::task]
 pub async fn audio_routing_task(
     mut i2s_resources: I2sResources<'static>,

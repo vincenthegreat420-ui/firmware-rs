@@ -15,8 +15,13 @@ const PAGE_REGISTER: RegisterAddress = 0x00;
 /// The currently active book
 const BOOK_REGISTER: RegisterAddress = 0x7F;
 
+/// TDM word length configuration.
+///
+/// Defines the number of bits per audio word in the TDM stream.
+/// Variants follow the pattern `Word{N}Bit` where N is the bit depth.
 #[repr(u8)]
 #[derive(Clone, Copy)]
+#[allow(missing_docs)]
 pub enum TdmWordLength {
     Word16Bit = 0x00,
     Word20Bit = 0x01,
@@ -24,17 +29,23 @@ pub enum TdmWordLength {
     Word32Bit = 0x03,
 }
 
+/// TDM time slot length configuration.
 #[repr(u8)]
 #[derive(Clone, Copy)]
+#[allow(missing_docs)]
 pub enum TdmTimeSlotLength {
     Slot16Bit = 0x00,
     Slot24Bit = 0x01,
     Slot32Bit = 0x02,
 }
 
+/// Amplifier gain settings.
+///
+/// Variants specify the output voltage in dBV, ranging from 11.0 dBV to 21.0 dBV
+/// in 0.5 dB steps. Format: `Gain{X_Y}dBV` where X_Y represents X.Y dBV.
 #[repr(u8)]
 #[derive(Clone, Copy)]
-/// The amplifier gain setting.
+#[allow(missing_docs)]
 pub enum Gain {
     Gain11_0dBV = 0x00,
     Gain11_5dBV = 0x01,
@@ -59,16 +70,20 @@ pub enum Gain {
     Gain21_0dBV = 0x14,
 }
 
+/// Amplifier playback channel selection.
 #[derive(Clone, Copy)]
-/// The amplifier playback channel.
 pub enum Channel {
+    /// Left channel only.
     Left,
+    /// Right channel only.
     Right,
+    /// Stereo mix (averaged left and right).
     StereoMix,
 }
 
+/// Amplifier power mode configuration.
 #[derive(Clone, Copy)]
-/// The amplifier power mode.
+#[allow(missing_docs)]
 pub enum PowerMode {
     Zero,
     One,
@@ -76,9 +91,10 @@ pub enum PowerMode {
     Three,
 }
 
+/// Noise gate hysteresis duration.
 #[repr(u8)]
 #[derive(Clone, Copy)]
-/// The duration of the noise gate hysteresis.
+#[allow(missing_docs)]
 pub enum NoiseGateHysteresis {
     Duration400us = 0x0,
     Duration600us = 0x1,
@@ -90,9 +106,10 @@ pub enum NoiseGateHysteresis {
     Duration1000ms = 0x7,
 }
 
+/// Noise gate threshold level.
 #[repr(u8)]
 #[derive(Clone, Copy)]
-/// The threshold of the noise gate.
+#[allow(missing_docs)]
 pub enum NoiseGateLevel {
     ThresholdMinus90dBFS = 0x0,
     ThresholdMinus100dBFS = 0x1,
@@ -100,20 +117,31 @@ pub enum NoiseGateLevel {
     ThresholdMinus120dBFS = 0x3,
 }
 
+/// Noise gate configuration.
 #[derive(Clone, Copy)]
 pub struct NoiseGate {
+    /// Hysteresis duration for noise gate activation.
     pub hysteresis: NoiseGateHysteresis,
+    /// Threshold level for noise gate.
     pub level: NoiseGateLevel,
 }
 
+/// TAS2780 amplifier configuration.
 #[derive(Clone, Copy)]
 pub struct Config {
+    /// Output gain setting.
     pub gain: Gain,
+    /// Audio channel selection.
     pub channel: Channel,
+    /// TDM slot assignment (0-15).
     pub tdm_slot: u8,
+    /// TDM word length.
     pub tdm_word_length: TdmWordLength,
+    /// TDM time slot length.
     pub tdm_time_slot_length: TdmTimeSlotLength,
+    /// Optional noise gate configuration.
     pub noise_gate: Option<NoiseGate>,
+    /// Power mode setting.
     pub power_mode: PowerMode,
 }
 
@@ -147,6 +175,14 @@ impl<'d, I2C> Tas2780<'d, I2C>
 where
     I2C: i2c::I2c,
 {
+    /// Create a new TAS2780 driver instance.
+    ///
+    /// # Arguments
+    ///
+    /// * `i2c` - mutable reference to the I2C bus.
+    /// * `address` - 7-bit I2C address.
+    ///
+    /// Note: Call `init()` and then `enable()` before using the amplifier.
     pub fn new(i2c: &'d mut I2C, address: i2c::SevenBitAddress) -> Self {
         Tas2780 {
             i2c,
@@ -235,6 +271,9 @@ where
         self.book = None;
     }
 
+    /// Enable the amplifier for playback.
+    ///
+    /// Must be called after `init()`. Configures power mode and activates playback.
     pub fn enable(&mut self) {
         debug!("Enabling TAS2780 at address {}", self.address);
 
@@ -251,6 +290,7 @@ where
         }
     }
 
+    /// Get the current configuration.
     pub fn config(&self) -> Config {
         self.config
     }
