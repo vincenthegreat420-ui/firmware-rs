@@ -37,14 +37,19 @@ bind_interrupts!(struct Irqs {
 
 static TIMER: Mutex<CriticalSectionRawMutex, RefCell<Option<timer::low_level::Timer<peripherals::TIM2>>>> =
     Mutex::new(RefCell::new(None));
+
+// SAFETY: NoopMutex is safe here because the Embassy async executor is single-threaded,
+// ensuring all I2C operations are sequential. The shared bus is only accessed by
+// tasks that are spawned on the same executor, and await points ensure proper ordering.
 static I2C_BUS: StaticCell<NoopMutex<RefCell<i2c::I2c<'static, Async, i2c::mode::Master>>>> = StaticCell::new();
 
-// Accessible by most system masters (Zone D2)
+// SAFETY: Link section places DMA buffer in SRAM1 (Zone D2), which is accessible by DMA2.
 #[unsafe(link_section = ".sram1")]
 static ADC1_MEASUREMENT_BUFFER: GroundedArrayCell<u16, 1> = GroundedArrayCell::uninit();
 
 // Reserve twice the SPDIF sample count, since the DMA will transfer at
 // half-full interrupt (so, at SPDIF_SAMPLE_COUNT * 2 / 2).
+// SAFETY: Link section places DMA buffer in SRAM1 (Zone D2), which is accessible by DMA2.
 #[unsafe(link_section = ".sram1")]
 static SPDIFRX_BUFFER: GroundedArrayCell<u32, { DEFAULT_SAMPLE_COUNT * 2 }> = GroundedArrayCell::uninit();
 
@@ -78,8 +83,14 @@ pub fn get_filters(sample_rate_hz: u32) -> [AudioFilter<'static>; OUTPUT_CHANNEL
     type B = BiquadType;
     type C = Coefficients<f32>;
 
-    // Crossover frequency
-    let f_co = 1800.hz();
+    /// Crossover frequency for the two-way speaker system (Hz)
+    const CROSSOVER_FREQUENCY_HZ: u32 = 1800;
+    /// Amplifier A/C gain (dB)
+    const AMPLIFIER_GAIN_DB_AC: f32 = -10.0;
+    /// Amplifier B/D gain (dB)
+    const AMPLIFIER_GAIN_DB_BD: f32 = -11.5;
+
+    let f_co = CROSSOVER_FREQUENCY_HZ.hz();
 
     let fs = sample_rate_hz.hz();
 
@@ -142,11 +153,11 @@ pub fn get_filters(sample_rate_hz: u32) -> [AudioFilter<'static>; OUTPUT_CHANNEL
         B::new(C::from_params(Type::HighPass, fs, f_co, Q_BUTTERWORTH_F32).unwrap()),
     ]);
 
-    // Negative gain inverts a channel.
-    let gain_a = -db_to_linear(-10.0);
-    let gain_b = db_to_linear(-11.5);
-    let gain_c = -db_to_linear(-10.0);
-    let gain_d = db_to_linear(-11.5);
+    // Negative gain inverts a channel for phase alignment.
+    let gain_a = -db_to_linear(AMPLIFIER_GAIN_DB_AC);
+    let gain_b = db_to_linear(AMPLIFIER_GAIN_DB_BD);
+    let gain_c = -db_to_linear(AMPLIFIER_GAIN_DB_AC);
+    let gain_d = db_to_linear(AMPLIFIER_GAIN_DB_BD);
 
     let delay_a: usize = 0;
     let delay_b: usize = 6;
@@ -170,17 +181,17 @@ async fn amplifier_task(amplifier_resources: AmplifierResources) {
     let i2c_bus = NoopMutex::new(RefCell::new(amplifier_resources.i2c));
     let i2c_bus = I2C_BUS.init(i2c_bus);
 
-    let mut ic2_device_a = I2cDevice::new(i2c_bus);
-    let mut tas2780_a = Tas2780::new(&mut ic2_device_a, 0x39);
+    let mut i2c_device_a = I2cDevice::new(i2c_bus);
+    let mut tas2780_a = Tas2780::new(&mut i2c_device_a, 0x39);
 
-    let mut ic2_device_b = I2cDevice::new(i2c_bus);
-    let mut tas2780_b = Tas2780::new(&mut ic2_device_b, 0x3a);
+    let mut i2c_device_b = I2cDevice::new(i2c_bus);
+    let mut tas2780_b = Tas2780::new(&mut i2c_device_b, 0x3a);
 
-    let mut ic2_device_c = I2cDevice::new(i2c_bus);
-    let mut tas2780_c = Tas2780::new(&mut ic2_device_c, 0x3d);
+    let mut i2c_device_c = I2cDevice::new(i2c_bus);
+    let mut tas2780_c = Tas2780::new(&mut i2c_device_c, 0x3d);
 
-    let mut ic2_device_d = I2cDevice::new(i2c_bus);
-    let mut tas2780_d = Tas2780::new(&mut ic2_device_d, 0x3e);
+    let mut i2c_device_d = I2cDevice::new(i2c_bus);
+    let mut tas2780_d = Tas2780::new(&mut i2c_device_d, 0x3e);
 
     debug!("Reset amplifiers.");
     pin_nsd.set_low();
@@ -255,6 +266,8 @@ async fn potentiometer_task(mut adc_resources: AdcResources<peripherals::ADC1>) 
 
     let mut ticker = Ticker::every(Duration::from_hz(POT_SAMPLE_RATE_HZ));
 
+    // SAFETY: The buffer is initialized via GroundedArrayCell before use, and is only
+    // accessed by DMA controller and this task. SRAM1 is in Zone D2, accessible by DMA2.
     let buffer: &mut [u16] = unsafe {
         ADC1_MEASUREMENT_BUFFER.initialize_all_copied(0);
         let (ptr, len) = ADC1_MEASUREMENT_BUFFER.get_ptr_len();
@@ -296,6 +309,8 @@ async fn spdif_task(
     mut resources: SpdifResources,
     audio_channel: channel::Sender<'static, NoopRawMutex, SampleBlock, SAMPLE_BLOCK_COUNT>,
 ) {
+    // SAFETY: The buffer is initialized via GroundedArrayCell before use, and is only
+    // accessed by SPDIFRX DMA and this task. SRAM1 is in Zone D2, accessible by DMA2.
     let buffer: &mut [u32] = unsafe {
         SPDIFRX_BUFFER.initialize_all_copied(0);
         let (ptr, len) = SPDIFRX_BUFFER.get_ptr_len();
@@ -598,6 +613,8 @@ fn setup_sof_timer(mut tim2: timer::low_level::Timer<'static, peripherals::TIM2>
 
     TIMER.lock(|p| p.borrow_mut().replace(tim2));
 
+    // SAFETY: TIM2 interrupt is fully configured before unmasking. The interrupt
+    // handler only accesses TIMER which is protected by CriticalSectionRawMutex.
     unsafe {
         cortex_m::peripheral::NVIC::unmask(interrupt::TIM2);
     }

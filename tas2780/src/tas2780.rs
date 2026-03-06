@@ -204,13 +204,16 @@ where
     /// Set the attenuation in steps of 0.5 dB.
     /// For example, an input of 0 gives an attenuation of 0 dB. An input of 100 gives -50 dB.
     /// Values that exceed -100 dB (an input of 200) mute the amplifier.
+    ///
+    /// # Arguments
+    ///
+    /// * `attenuation_half_db` - Attenuation in half-dB steps (0 = 0 dB, 100 = -50 dB, 255 = mute)
     pub fn set_volume(&mut self, attenuation_half_db: u8) {
         self.set_page(0);
 
         /// Digital volume control
         const DVC_REGISTER: RegisterAddress = 0x1A;
 
-        // FIXME: convert volume
         self.write_register(DVC_REGISTER, attenuation_half_db)
     }
 
@@ -313,7 +316,9 @@ where
             Channel::StereoMix => {
                 tdm_cfg2 |= 0b11 << 4; // RX_SCFG: Stereo downmix (L+R)/2
 
-                // FIXME: channel selection in tdm_cfg3
+                // For stereo mix, use slot 0 for left and slot 1 for right data
+                tdm_cfg3 |= self.config.tdm_slot & 0xF;
+                tdm_cfg3 |= (self.config.tdm_slot.wrapping_add(1) & 0xF) << 4;
             }
         }
 

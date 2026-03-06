@@ -189,6 +189,8 @@ async fn main(spawner: Spawner) {
 
     TIMER.lock(|p| p.borrow_mut().replace(tim2));
 
+    // SAFETY: TIM2 interrupt is fully configured before unmasking. The interrupt
+    // handler only accesses TIMER which is protected by CriticalSectionRawMutex.
     unsafe {
         cortex_m::peripheral::NVIC::unmask(interrupt::TIM2);
     }

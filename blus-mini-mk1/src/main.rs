@@ -6,6 +6,7 @@ use core::cell::{Cell, RefCell};
 use audio_routing::I2sResources;
 use blus_mini_mk1::*;
 use defmt::{debug, info, unwrap};
+use defmt_rtt as _;
 use embassy_embedded_hal::shared_bus::blocking::i2c::I2cDevice;
 use embassy_executor::Spawner;
 use embassy_stm32::gpio::{Level, Output, Speed};
@@ -19,8 +20,8 @@ use embassy_time::Timer;
 use embassy_usb::class::uac1;
 use embassy_usb::class::uac1::speaker::{self, Speaker};
 use heapless::Vec;
+use panic_probe as _;
 use static_cell::StaticCell;
-use {defmt_rtt as _, panic_probe as _};
 
 bind_interrupts!(struct Irqs {
     OTG_FS => usb::InterruptHandler<peripherals::USB_OTG_FS>;
@@ -48,17 +49,17 @@ async fn amplifier_task(amplifier_resources: AmplifierResources) {
     let i2c_bus = NoopMutex::new(RefCell::new(amplifier_resources.i2c));
     let i2c_bus = I2C_BUS.init(i2c_bus);
 
-    let mut ic2_device_a = I2cDevice::new(i2c_bus);
-    let mut tas2780_a = Tas2780::new(&mut ic2_device_a, 0x39);
+    let mut i2c_device_a = I2cDevice::new(i2c_bus);
+    let mut tas2780_a = Tas2780::new(&mut i2c_device_a, 0x39);
 
-    let mut ic2_device_b = I2cDevice::new(i2c_bus);
-    let mut tas2780_b = Tas2780::new(&mut ic2_device_b, 0x3a);
+    let mut i2c_device_b = I2cDevice::new(i2c_bus);
+    let mut tas2780_b = Tas2780::new(&mut i2c_device_b, 0x3a);
 
-    let mut ic2_device_c = I2cDevice::new(i2c_bus);
-    let mut tas2780_c = Tas2780::new(&mut ic2_device_c, 0x3d);
+    let mut i2c_device_c = I2cDevice::new(i2c_bus);
+    let mut tas2780_c = Tas2780::new(&mut i2c_device_c, 0x3d);
 
-    let mut ic2_device_d = I2cDevice::new(i2c_bus);
-    let mut tas2780_d = Tas2780::new(&mut ic2_device_d, 0x3e);
+    let mut i2c_device_d = I2cDevice::new(i2c_bus);
+    let mut tas2780_d = Tas2780::new(&mut i2c_device_d, 0x3e);
 
     debug!("Reset amplifiers.");
     pin_nsd.set_low();
@@ -256,6 +257,8 @@ async fn main(spawner: Spawner) {
 
     TIMER.lock(|p| p.borrow_mut().replace(tim2));
 
+    // SAFETY: TIM2 interrupt is fully configured before unmasking. The interrupt
+    // handler only accesses TIMER which is protected by CriticalSectionRawMutex.
     unsafe {
         cortex_m::peripheral::NVIC::unmask(interrupt::TIM2);
     }

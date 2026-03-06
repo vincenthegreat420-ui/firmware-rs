@@ -1,3 +1,5 @@
+//! Audio filter chain with biquad filters, gain, and delay.
+
 use biquad::*;
 
 const MAX_DELAY_LENGTH: usize = 32;
@@ -31,10 +33,17 @@ struct Delay {
 
 impl Delay {
     /// Create a new delay instance with a given delay length in number of samples.
+    ///
+    /// # Panics
+    ///
+    /// Panics if `length` exceeds `MAX_DELAY_LENGTH`.
     fn new(length: usize) -> Self {
-        if length > MAX_DELAY_LENGTH {
-            panic!("Delay exceeds maximum allowed delay.");
-        }
+        assert!(
+            length <= MAX_DELAY_LENGTH,
+            "Delay length {} exceeds maximum {}",
+            length,
+            MAX_DELAY_LENGTH
+        );
         Delay {
             write_index: length,
             read_index: 0,
@@ -69,7 +78,7 @@ pub struct Filter<'d, B: Biquad<f32>> {
     /// A delay in number of samples.
     delay: Delay,
     /// The chain of biquad filters.
-    /// FIXME: A vector is slower than an array, why is that?
+    /// Uses a mutable slice to allow caller-owned allocation without heap.
     biquads: &'d mut [B],
 }
 
