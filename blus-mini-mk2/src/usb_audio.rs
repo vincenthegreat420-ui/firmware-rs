@@ -1,5 +1,5 @@
 //! Interfaces to the USB audio class and transports samples to the audio routing task.
-use defmt::{debug, panic};
+use defmt::debug;
 use embassy_stm32::{peripherals, usb};
 use embassy_sync::blocking_mutex::raw::NoopRawMutex;
 use embassy_sync::channel;
@@ -32,7 +32,10 @@ struct Disconnected {}
 impl From<EndpointError> for Disconnected {
     fn from(val: EndpointError) -> Self {
         match val {
-            EndpointError::BufferOverflow => panic!("Buffer overflow"),
+            EndpointError::BufferOverflow => {
+                debug!("USB buffer overflow, disconnecting");
+                Disconnected {}
+            }
             EndpointError::Disabled => Disconnected {},
         }
     }
@@ -146,11 +149,11 @@ pub async fn control_task(control_monitor: speaker::ControlMonitor<'static>) {
             let gain = match volume {
                 speaker::Volume::Muted => 0.0,
                 speaker::Volume::DeciBel(volume_db) => {
+                    // Clamp positive volumes to 0 dB (should not happen from well-behaved hosts)
                     if volume_db > 0.0 {
-                        panic!("Volume must not be positive.")
+                        debug!("Volume {} dB is positive, clamping to 0 dB", volume_db);
                     }
-
-                    db_to_linear(volume_db)
+                    db_to_linear(volume_db.min(0.0))
                 }
             };
 
