@@ -1,10 +1,10 @@
 //! Audio routing (source selection), signal processing, and playback module.
-use audio::{audio_filter, AudioFilter};
+use audio::{AudioFilter, audio_filter};
 use defmt::{debug, info, panic, trace};
-use embassy_futures::select::{select, select3, Either, Either3};
+use embassy_futures::select::{Either, Either3, select, select3};
 use embassy_stm32::gpio::Output;
 use embassy_stm32::sai::word;
-use embassy_stm32::{peripherals, sai};
+use embassy_stm32::{Peri, peripherals, sai};
 use embassy_sync::blocking_mutex::raw::NoopRawMutex;
 use embassy_sync::channel;
 use grounded::uninit::GroundedArrayCell;
@@ -17,40 +17,40 @@ const SAI_AMP_SAMPLE_COUNT: usize = (OUTPUT_CHANNEL_COUNT / INPUT_CHANNEL_COUNT)
 /// Resources that are required for instantiating SAI1.
 #[allow(missing_docs)]
 pub struct Sai1Resources {
-    pub sai: peripherals::SAI1,
+    pub sai: Peri<'static, peripherals::SAI1>,
 
-    pub mclk_a: peripherals::PE2,
-    pub sck_a: peripherals::PE5,
-    pub sd_a: peripherals::PE6,
-    pub fs_a: peripherals::PE4,
-    pub dma_a: peripherals::DMA1_CH3,
+    pub mclk_a: Peri<'static, peripherals::PE2>,
+    pub sck_a: Peri<'static, peripherals::PE5>,
+    pub sd_a: Peri<'static, peripherals::PE6>,
+    pub fs_a: Peri<'static, peripherals::PE4>,
+    pub dma_a: Peri<'static, peripherals::DMA1_CH3>,
 
-    pub sd_b: peripherals::PE11,
-    pub dma_b: peripherals::DMA1_CH4,
+    pub sd_b: Peri<'static, peripherals::PE11>,
+    pub dma_b: Peri<'static, peripherals::DMA1_CH4>,
 }
 
 /// Resources that are required for instantiating SAI4.
 #[allow(missing_docs)]
 pub struct Sai4Resources {
-    pub sai: peripherals::SAI4,
+    pub sai: Peri<'static, peripherals::SAI4>,
 
-    pub mclk_a: peripherals::PE0,
-    pub sck_a: peripherals::PD13,
-    pub sd_a: peripherals::PC1,
-    pub fs_a: peripherals::PD12,
-    pub dma_a: peripherals::BDMA_CH0,
+    pub mclk_a: Peri<'static, peripherals::PE0>,
+    pub sck_a: Peri<'static, peripherals::PD13>,
+    pub sd_a: Peri<'static, peripherals::PC1>,
+    pub fs_a: Peri<'static, peripherals::PD12>,
+    pub dma_a: Peri<'static, peripherals::BDMA_CH0>,
 
-    pub sck_b: peripherals::PE12,
-    pub sd_b: peripherals::PE11,
-    pub fs_b: peripherals::PE13,
-    pub dma_b: peripherals::BDMA_CH1,
+    pub sck_b: Peri<'static, peripherals::PE12>,
+    pub sd_b: Peri<'static, peripherals::PE11>,
+    pub fs_b: Peri<'static, peripherals::PE13>,
+    pub dma_b: Peri<'static, peripherals::BDMA_CH1>,
 }
 
 // Accessible by BDMA (Zone D3)
-#[link_section = ".sram4"]
+#[unsafe(link_section = ".sram4")]
 static SAI_AMP_WRITE_BUFFER: GroundedArrayCell<u32, SAI_AMP_SAMPLE_COUNT> = GroundedArrayCell::uninit();
 
-#[link_section = ".sram4"]
+#[unsafe(link_section = ".sram4")]
 static SAI_RPI_READ_BUFFER: GroundedArrayCell<u32, DEFAULT_SAMPLE_COUNT> = GroundedArrayCell::uninit();
 
 fn new_sai_amp_rpi<'d>(
@@ -72,7 +72,7 @@ fn new_sai_amp_rpi<'d>(
         w.set_sai4asel(clk_source);
     });
 
-    let (sai_amp, sai_rpi) = sai::split_subblocks(&mut resources.sai);
+    let (sai_amp, sai_rpi) = sai::split_subblocks(resources.sai.reborrow());
 
     let sai_amp_driver = {
         let mut config = sai::Config::default();
@@ -87,17 +87,17 @@ fn new_sai_amp_rpi<'d>(
         match audio_source {
             AudioSource::Spdif => {
                 config.data_size = sai::DataSize::Data16;
-                config.frame_length = (OUTPUT_CHANNEL_COUNT * 16) as u8;
+                config.frame_length = (OUTPUT_CHANNEL_COUNT * 16) as u16;
 
-                config.master_clock_divider = sai::MasterClockDivider::MasterClockDisabled;
+                config.master_clock_divider = sai::MasterClockDivider::DIV1;
             }
             _ => {
                 assert_eq!(SAMPLE_WIDTH_BIT, 32);
                 config.data_size = sai::DataSize::Data32;
-                config.frame_length = (OUTPUT_CHANNEL_COUNT * 32) as u8;
+                config.frame_length = (OUTPUT_CHANNEL_COUNT * 32) as u16;
 
                 match sample_rate_hz {
-                    SAMPLE_RATE_HZ => config.master_clock_divider = sai::MasterClockDivider::Div2,
+                    SAMPLE_RATE_HZ => config.master_clock_divider = sai::MasterClockDivider::DIV2,
                     _ => panic!("Unsupported SAI sample rate."),
                 }
             }
@@ -105,10 +105,10 @@ fn new_sai_amp_rpi<'d>(
 
         sai::Sai::new_asynchronous(
             sai_amp,
-            &mut resources.sck_a,
-            &mut resources.sd_a,
-            &mut resources.fs_a,
-            &mut resources.dma_a,
+            resources.sck_a.reborrow(),
+            resources.sd_a.reborrow(),
+            resources.fs_a.reborrow(),
+            resources.dma_a.reborrow(),
             sai_amp_write_buffer,
             config,
         )
@@ -122,22 +122,22 @@ fn new_sai_amp_rpi<'d>(
         config.slot_count = sai::word::U4(CHANNEL_COUNT as u8);
         config.slot_enable = 0xFFFF; // All slots
         config.data_size = sai::DataSize::Data32;
-        config.frame_length = (CHANNEL_COUNT * SAMPLE_WIDTH_BIT) as u8;
+        config.frame_length = (CHANNEL_COUNT * SAMPLE_WIDTH_BIT) as u16;
         config.frame_sync_active_level_length = sai::word::U7(SAMPLE_WIDTH_BIT as u8);
         config.bit_order = sai::BitOrder::MsbFirst;
         config.mute_value = sai::MuteValue::LastValue;
 
         match sample_rate_hz {
-            SAMPLE_RATE_HZ => config.master_clock_divider = sai::MasterClockDivider::Div2,
+            SAMPLE_RATE_HZ => config.master_clock_divider = sai::MasterClockDivider::DIV2,
             _ => panic!("Unsupported SAI sample rate."),
         }
 
         sai::Sai::new_asynchronous(
             sai_rpi,
-            &mut resources.sck_b,
-            &mut resources.sd_b,
-            &mut resources.fs_b,
-            &mut resources.dma_b,
+            resources.sck_b.reborrow(),
+            resources.sd_b.reborrow(),
+            resources.fs_b.reborrow(),
+            resources.dma_b.reborrow(),
             sai_rpi_read_buffer,
             config,
         )

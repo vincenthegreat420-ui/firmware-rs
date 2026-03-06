@@ -1,7 +1,7 @@
 use audio::audio_filter::{sample_to_f32, sample_to_u32};
 use defmt::info;
 use embassy_stm32::time::Hertz;
-use embassy_stm32::{i2s, peripherals};
+use embassy_stm32::{Peri, i2s, peripherals};
 use embassy_sync::blocking_mutex::raw::NoopRawMutex;
 use embassy_sync::zerocopy_channel;
 use embassy_time::{Duration, WithTimeout as _};
@@ -10,12 +10,12 @@ use crate::*;
 
 #[allow(unused)]
 pub struct I2sResources<'d> {
-    pub i2s: peripherals::SPI3,
+    pub i2s: Peri<'static, peripherals::SPI3>,
 
-    pub ck: peripherals::PB3,
-    pub sd: peripherals::PB5,
-    pub ws: peripherals::PA15,
-    pub dma: peripherals::DMA1_CH7,
+    pub ck: Peri<'static, peripherals::PB3>,
+    pub sd: Peri<'static, peripherals::PB5>,
+    pub ws: Peri<'static, peripherals::PA15>,
+    pub dma: Peri<'static, peripherals::DMA1_CH7>,
     pub dma_buf: &'d mut [u16],
 }
 
@@ -23,15 +23,15 @@ fn new_i2s<'d>(resources: &'d mut I2sResources) -> i2s::I2S<'d, u16> {
     let mut config = i2s::Config::default();
     config.format = i2s::Format::Data32Channel32;
     config.master_clock = false;
+    config.frequency = Hertz(SAMPLE_RATE_HZ);
 
     i2s::I2S::new_txonly_nomck(
-        &mut resources.i2s,
-        &mut resources.sd,
-        &mut resources.ws,
-        &mut resources.ck,
-        &mut resources.dma,
+        resources.i2s.reborrow(),
+        resources.sd.reborrow(),
+        resources.ws.reborrow(),
+        resources.ck.reborrow(),
+        resources.dma.reborrow(),
         resources.dma_buf,
-        Hertz(SAMPLE_RATE_HZ),
         config,
     )
 }
