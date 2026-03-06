@@ -5,13 +5,12 @@
 pub mod audio_routing;
 pub mod usb_audio;
 
-use micromath::F32Ext;
-
 use audio::AudioSource;
 use embassy_sync::blocking_mutex::raw::{CriticalSectionRawMutex, ThreadModeRawMutex};
 use embassy_sync::signal::Signal;
 use embassy_usb::class::uac1;
 use heapless::Vec;
+use micromath::F32Ext;
 
 /// Stereo input.
 pub const INPUT_CHANNEL_COUNT: usize = 2;

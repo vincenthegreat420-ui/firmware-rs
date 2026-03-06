@@ -9,6 +9,7 @@ use core::cell::{Cell, RefCell};
 use audio::{self, AudioFilter, AudioSource};
 use blus_mini_mk2::*;
 use defmt::{debug, info, unwrap};
+use defmt_rtt as _;
 use embassy_embedded_hal::shared_bus::blocking::i2c::I2cDevice;
 use embassy_executor::Spawner;
 use embassy_stm32::adc::{self, AdcChannel};
@@ -25,8 +26,8 @@ use embassy_usb::class::uac1;
 use embassy_usb::class::uac1::speaker::{self, Speaker};
 use grounded::uninit::GroundedArrayCell;
 use micromath::F32Ext;
+use panic_probe as _;
 use static_cell::StaticCell;
-use {defmt_rtt as _, panic_probe as _};
 
 bind_interrupts!(struct Irqs {
     OTG_HS => usb::InterruptHandler<peripherals::USB_OTG_HS>;

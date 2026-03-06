@@ -8,6 +8,7 @@ use core::cell::{Cell, RefCell};
 use audio_routing::I2sResources;
 use blackpill_common::*;
 use defmt::{debug, info, unwrap};
+use defmt_rtt as _;
 use embassy_executor::Spawner;
 use embassy_stm32::gpio::Output;
 use embassy_stm32::time::Hertz;
@@ -19,8 +20,8 @@ use embassy_time::Timer;
 use embassy_usb::class::uac1;
 use embassy_usb::class::uac1::speaker::{self, Speaker};
 use heapless::Vec;
+use panic_probe as _;
 use static_cell::StaticCell;
-use {defmt_rtt as _, panic_probe as _};
 
 bind_interrupts!(struct Irqs {
     OTG_FS => usb::InterruptHandler<peripherals::USB_OTG_FS>;
