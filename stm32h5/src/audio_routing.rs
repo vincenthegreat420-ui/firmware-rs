@@ -49,6 +49,7 @@ sai::Sai::new_asynchronous(
     resources.dma_a.reborrow(),
     write_buffer,
     config,
+     )
 }
 
 /// Receives audio samples from the USB streaming task and can play them back.
