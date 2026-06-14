@@ -32,28 +32,31 @@ pub struct SaiResources {
 }
 
 fn new_sai<'d>(write_buffer: &'d mut [u32], resources: &'d mut SaiResources) -> Sai<'d, peripherals::SAI1, u32> {
-    let (_, sai) = sai::split_subblocks(resources.sai.reborrow());
+    let (sai_a, _) = sai::split_subblocks(resources.sai.reborrow());
 
-    // I2S compatible.
     let mut config = sai::Config::default();
     config.bit_order = BitOrder::MsbFirst;
-    config.slot_count = sai::word::U4(CHANNEL_COUNT as u8);
+    config.slot_count = word::U4(INPUT_CHANNEL_COUNT as u8);
     config.frame_sync_active_level_length = word::U7(SAMPLE_WIDTH_BIT as u8);
     config.data_size = sai::DataSize::Data32;
-    config.frame_length = (CHANNEL_COUNT * SAMPLE_WIDTH_BIT) as u8;
-    config.master_clock_divider = sai::MasterClockDivider::Div2;
+    config.frame_length = (INPUT_CHANNEL_COUNT * SAMPLE_WIDTH_BIT) as u16;
+    config.master_clock_divider = sai::MasterClockDivider::DIV1;
     config.clock_strobe = ClockStrobe::Falling;
-
-    sai::Sai::new_asynchronous(
-        sai,
-        resources.sck_b.reborrow(),
-        resources.sd_b.reborrow(),
-        resources.fs_b.reborrow(),
-        resources.dma_b.reborrow(),
-        write_buffer,
-        config,
+    config.frame_sync_offset = FrameSyncOffset::BeforeFirstBit;
+    config.frame_sync_polarity = FrameSyncPolarity::ActiveLow;
+    sai::Sai::new_asynchronous_with_mclk(
+        sai_a,
+        resources.sck_a.reborrow(),
+                                         resources.sd_a.reborrow(),
+                                         resources.fs_a.reborrow(),
+                                         resources.mclk_a.reborrow(),   // Важно: MCLK подключён
+                                         resources.dma_a.reborrow(),
+                                         write_buffer,
+                                         Irqs,
+                                         config,
     )
 }
+
 
 /// Receives audio samples from the USB streaming task and can play them back.
 #[embassy_executor::task]
