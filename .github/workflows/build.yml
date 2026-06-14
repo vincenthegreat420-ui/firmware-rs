@@ -21,14 +21,19 @@ jobs:
         run: |
           rustup toolchain install nightly -c rustfmt
           rustup target add thumbv8m.main-none-eabihf --toolchain nightly
+          # Устанавливаем встроенные инструменты LLVM (включая правильный objcopy)
+          rustup component add llvm-tools-preview --toolchain nightly
 
       - name: Build STM32H5 (Force Nightly)
         run: |
           cd ./stm32h5
           cargo +nightly build --release
           
-          # Указываем точное имя собранного файла из логов
-          objcopy -O binary target/thumbv8m.main-none-eabihf/release/embassy-stm32h5-examples fw-stm32h5.bin
+          # Находим путь к правильному objcopy из состава Rust LLVM
+          OBJCOPY=$(rustc --print sysroot)/lib/rustlib/x86_64-unknown-linux-gnu/bin/rust-objcopy
+          
+          # Вызываем его для создания прошивки
+          $OBJCOPY -O binary target/thumbv8m.main-none-eabihf/release/embassy-stm32h5-examples fw-stm32h5.bin
           cp fw-stm32h5.bin ../
 
       - name: Upload firmware binary
