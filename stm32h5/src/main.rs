@@ -245,11 +245,11 @@ async fn main(spawner: Spawner) {
         dma_a: p.GPDMA1_CH1,
     };
 
-    unwrap!(spawner.spawn(blinky_task(
-        Output::new(p.PG4, embassy_stm32::gpio::Level::Low, embassy_stm32::gpio::Speed::Low),
-        Output::new(p.PF4, embassy_stm32::gpio::Level::Low, embassy_stm32::gpio::Speed::Low),
-        Output::new(p.PB0, embassy_stm32::gpio::Level::Low, embassy_stm32::gpio::Speed::Low)
-    )));
+    #unwrap!(spawner.spawn(blinky_task(
+       # Output::new(p.PG4, embassy_stm32::gpio::Level::Low, embassy_stm32::gpio::Speed::Low),
+       # Output::new(p.PF4, embassy_stm32::gpio::Level::Low, embassy_stm32::gpio::Speed::Low),
+      #  Output::new(p.PB0, embassy_stm32::gpio::Level::Low, embassy_stm32::gpio::Speed::Low)
+   # )));
 
     // Launch USB audio tasks.
     unwrap!(spawner.spawn(usb_audio::control_task(control_monitor)));
