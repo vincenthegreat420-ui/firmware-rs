@@ -31,7 +31,9 @@ pub struct SaiResources {
 }
 
 fn new_sai<'d>(write_buffer: &'d mut [u32], resources: &'d mut SaiResources) -> Sai<'d, peripherals::SAI1, u32> {
+    // Безопасно разделяем периферию на субблоки
     let (sai_a, _) = sai::split_subblocks(resources.sai.reborrow());
+    
     // I2S compatible.
     let mut config = sai::Config::default();
     config.bit_order = BitOrder::MsbFirst;
@@ -41,15 +43,17 @@ fn new_sai<'d>(write_buffer: &'d mut [u32], resources: &'d mut SaiResources) -> 
     config.frame_length = (CHANNEL_COUNT * SAMPLE_WIDTH_BIT) as u8;
     config.master_clock_divider = sai::MasterClockDivider::Div1;
     config.clock_strobe = ClockStrobe::Falling;
-sai::Sai::new_asynchronous(
-    resources.sai.a,            // Передаем субблок А вместо модуля sai
-    resources.sck_a.reborrow(),
-    resources.sd_a.reborrow(),
-    resources.fs_a.reborrow(),
-    resources.dma_a.reborrow(),
-    write_buffer,
-    config,
-     )
+
+    // Вызываем инициализацию, передавая полученный sai_a
+    sai::Sai::new_asynchronous(
+        sai_a,                      // <- ИСПРАВЛЕНО: передаем переменную sai_a
+        resources.sck_a.reborrow(),
+        resources.sd_a.reborrow(),
+        resources.fs_a.reborrow(),
+        resources.dma_a.reborrow(),
+        write_buffer,
+        config,
+    )
 }
 
 /// Receives audio samples from the USB streaming task and can play them back.
