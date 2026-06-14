@@ -1,4 +1,6 @@
 //! Audio playback and routing.
+use embassy_stm32::sai::{FrameSyncOffset, FrameSyncPolarity};
+use crate::Irqs;
 use audio::{
     audio_filter::{sample_to_f32, sample_to_u32},
     AudioFilter,
@@ -36,11 +38,11 @@ fn new_sai<'d>(write_buffer: &'d mut [u32], resources: &'d mut SaiResources) -> 
 
     let mut config = sai::Config::default();
     config.bit_order = BitOrder::MsbFirst;
-    config.slot_count = word::U4(INPUT_CHANNEL_COUNT as u8);
+    config.slot_count = word::U4(CHANNEL_COUNT as u8);
     config.frame_sync_active_level_length = word::U7(SAMPLE_WIDTH_BIT as u8);
     config.data_size = sai::DataSize::Data32;
-    config.frame_length = (INPUT_CHANNEL_COUNT * SAMPLE_WIDTH_BIT) as u16;
-    config.master_clock_divider = sai::MasterClockDivider::DIV1;
+    config.frame_length = (CHANNEL_COUNT * SAMPLE_WIDTH_BIT) as u16;
+    config.master_clock_divider = sai::MasterClockDivider::Div1;
     config.clock_strobe = ClockStrobe::Falling;
     config.frame_sync_offset = FrameSyncOffset::BeforeFirstBit;
     config.frame_sync_polarity = FrameSyncPolarity::ActiveLow;
