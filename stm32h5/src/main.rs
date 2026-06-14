@@ -100,34 +100,26 @@ async fn main(spawner: Spawner) {
     {
         use embassy_stm32::rcc::*;
         config.rcc.hsi = None;
-        config.rcc.hsi48 = None;
+        config.rcc.hsi48 = Some(Hsi48Config { sync_from_usb: true }); // needed for USB
         config.rcc.hse = Some(Hse {
-            freq: Hertz(24_576_000),
-            mode: HseMode::BypassDigital,
+            freq: Hertz(8_000_000),
+                              mode: HseMode::Oscillator,
         });
         config.rcc.pll1 = Some(Pll {
             source: PllSource::HSE,
-            prediv: PllPreDiv::DIV4,
-            mul: PllMul::MUL80,
-            divp: Some(PllDiv::DIV2), // 245.76 Mhz
-            divq: None,
-            divr: None,
+            prediv: PllPreDiv::DIV2,
+            mul: PllMul::MUL125,
+            divp: Some(PllDiv::DIV2), // 250 Mhz
+                               divq: None,
+                               divr: None,
         });
         config.rcc.pll2 = Some(Pll {
             source: PllSource::HSE,
-            prediv: PllPreDiv::DIV8,
-            mul: PllMul::MUL96,
-            divp: Some(PllDiv::DIV12), // 24.576 MHz for 48 kHz audio
-            divq: None,
-            divr: None,
-        });
-        config.rcc.pll3 = Some(Pll {
-            source: PllSource::HSE,
-            prediv: PllPreDiv::DIV8,
-            mul: PllMul::MUL125,
-            divp: None,
-            divq: Some(PllDiv::DIV8), // 48 MHz for USB
-            divr: None,
+            prediv: PllPreDiv::DIV5,
+            mul: PllMul::MUL192,
+            divp: Some(PllDiv::DIV25), // 12.288 MHz for 48 kHz audio
+                               divq: None,
+                               divr: None,
         });
         config.rcc.ahb_pre = AHBPrescaler::DIV1;
         config.rcc.apb1_pre = APBPrescaler::DIV1;
@@ -135,9 +127,8 @@ async fn main(spawner: Spawner) {
         config.rcc.apb3_pre = APBPrescaler::DIV1;
         config.rcc.sys = Sysclk::PLL1_P;
         config.rcc.voltage_scale = VoltageScale::Scale0;
-        config.rcc.mux.usbsel = mux::Usbsel::PLL3_Q;
+        config.rcc.mux.usbsel = mux::Usbsel::HSI48;
         config.rcc.mux.sai1sel = mux::Saisel::PLL2_P;
-        config.rcc.mux.sai2sel = mux::Saisel::PLL2_P;
     }
     let p = embassy_stm32::init(config);
 
