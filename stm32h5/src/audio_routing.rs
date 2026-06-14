@@ -39,10 +39,9 @@ fn new_sai<'d>(write_buffer: &'d mut [u32], resources: &'d mut SaiResources) -> 
     config.frame_sync_active_level_length = word::U7(SAMPLE_WIDTH_BIT as u8);
     config.data_size = sai::DataSize::Data32;
     config.frame_length = (CHANNEL_COUNT * SAMPLE_WIDTH_BIT) as u8;
-    config.master_clock_divider = sai::MasterClockDivider::Div2;
+    config.master_clock_divider = sai::MasterClockDivider::Div1;
     config.clock_strobe = ClockStrobe::Falling;
-
-    sai::Sai::new_asynchronous(
+ sai::Sai::new_asynchronous(
         sai,
         resources.sck_a.reborrow(),
         resources.sd_a.reborrow(),
