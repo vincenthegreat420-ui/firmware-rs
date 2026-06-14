@@ -27,7 +27,6 @@ pub struct SaiResources {
     pub sck_a: Peri<'static, peripherals::PE5>,
     pub sd_a: Peri<'static, peripherals::PE6>,
     pub fs_a: Peri<'static, peripherals::PE4>,
-    pub mclk_a: Peri<'static, peripherals::PE2>,
     pub dma_a: Peri<'static, peripherals::GPDMA1_CH1>,
 }
 
