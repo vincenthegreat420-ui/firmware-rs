@@ -24,10 +24,11 @@ static _FILTERS: StaticCell<Vec<AudioFilter<'_>, 10>> = StaticCell::new();
 #[allow(missing_docs)]
 pub struct SaiResources {
     pub sai: Peri<'static, peripherals::SAI1>,
-    pub sck_b: Peri<'static, peripherals::PF8>,
-    pub sd_b: Peri<'static, peripherals::PE3>,
-    pub fs_b: Peri<'static, peripherals::PF9>,
-    pub dma_b: Peri<'static, peripherals::GPDMA1_CH1>,
+    pub sck_a: Peri<'static, peripherals::PE5>,
+    pub sd_a: Peri<'static, peripherals::PE6>,
+    pub fs_a: Peri<'static, peripherals::PE4>,
+    pub mclk_a: Peri<'static, peripherals::PE2>,
+    pub dma_a: Peri<'static, peripherals::GPDMA1_CH1>,
 }
 
 fn new_sai<'d>(write_buffer: &'d mut [u32], resources: &'d mut SaiResources) -> Sai<'d, peripherals::SAI1, u32> {
