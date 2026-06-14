@@ -1,0 +1,22 @@
+name: Rust build
+
+on:
+  push:
+    branches: [ "blus-dac" ]
+  pull_request:
+    branches: [ "blus-dac" ]
+
+jobs:
+  build:
+    runs-down: ubuntu-latest
+
+    steps:
+    - uses: actions/checkout@v4
+
+    - name: Set up Rust
+      uses: dtolnay/rust-toolchain@stable
+
+    - name: Build stm32h5 project
+      run: |
+        cd stm32h5
+        cargo build --release
