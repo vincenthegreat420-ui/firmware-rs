@@ -238,11 +238,12 @@ async fn main(spawner: Spawner) {
     }
 
     let sai_resources = SaiResources {
-        sai: p.SAI1,
-        sck_b: p.PB3,
-        sd_b: p.PB5,
-        fs_b: p.PB4,
-        dma_b: p.GPDMA1_CH1,
+           sai: p.SAI1,
+        sck_a: p.PE5,
+        sd_a: p.PE6,
+        fs_a: p.PE4,
+        mclk_a: p.PE2,
+        dma_a: p.GPDMA1_CH1,
     };
 
     unwrap!(spawner.spawn(blinky_task(
