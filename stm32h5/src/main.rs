@@ -1,6 +1,11 @@
 #![no_std]
 #![no_main]
 
+
+use embassy_stm32::dcmi::InterruptHandler;
+use embassy_stm32::dts::InterruptHandler;
+
+use embassy_stm32::hash::InterruptHandler;
 use core::cell::{Cell, RefCell};
 
 use defmt::{debug, error, info, panic, unwrap};
