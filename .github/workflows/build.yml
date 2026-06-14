@@ -25,10 +25,10 @@ jobs:
       - name: Build STM32H5 (Force Nightly)
         run: |
           cd ./stm32h5
-          # Знак +nightly принудительно запускает свежий компилятор
           cargo +nightly build --release
           
-          objcopy -O binary target/thumbv8m.main-none-eabihf/release/stm32h5 fw-stm32h5.bin
+          # Указываем точное имя собранного файла из логов
+          objcopy -O binary target/thumbv8m.main-none-eabihf/release/embassy-stm32h5-examples fw-stm32h5.bin
           cp fw-stm32h5.bin ../
 
       - name: Upload firmware binary
