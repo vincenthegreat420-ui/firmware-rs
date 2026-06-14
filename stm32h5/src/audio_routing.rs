@@ -41,15 +41,14 @@ fn new_sai<'d>(write_buffer: &'d mut [u32], resources: &'d mut SaiResources) -> 
     config.frame_length = (CHANNEL_COUNT * SAMPLE_WIDTH_BIT) as u8;
     config.master_clock_divider = sai::MasterClockDivider::Div1;
     config.clock_strobe = ClockStrobe::Falling;
- sai::Sai::new_asynchronous(
-        sai,
-        resources.sck_a.reborrow(),
-        resources.sd_a.reborrow(),
-        resources.fs_a.reborrow(),
-        resources.dma_a.reborrow(),
-        write_buffer,
-        config,
-    )
+sai::Sai::new_asynchronous(
+    resources.sai.a,            // Передаем субблок А вместо модуля sai
+    resources.sck_a.reborrow(),
+    resources.sd_a.reborrow(),
+    resources.fs_a.reborrow(),
+    resources.dma_a.reborrow(),
+    write_buffer,
+    config,
 }
 
 /// Receives audio samples from the USB streaming task and can play them back.
