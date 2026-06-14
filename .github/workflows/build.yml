@@ -21,14 +21,23 @@ jobs:
       - name: Install dependencies
         run: cargo install cargo-binutils
 
-      - name: Build stm32h5
+      - name: Auto Find and Build STM32H5
         run: |
-          cd stm32h5
+          # Ищем, где именно лежит папка проекта с STM32H5
+          TARGET_DIR=$(find . -type d -name "*h5*" -not -path "*/target/*" | head -n 1)
+          echo "Found project directory at: $TARGET_DIR"
+          
+          cd "$TARGET_DIR"
           cargo build --release
+          
+          # Превращаем скомпилированный elf-файл в прошивку .bin
           cargo objcopy --release -- -O binary fw-stm32h5.bin
+          
+          # Копируем её в корень для удобства скачивания
+          cp fw-stm32h5.bin ../../
 
       - name: Upload firmware binary
         uses: actions/upload-artifact@v4
         with:
           name: stm32h5-firmware
-          path: stm32h5/fw-stm32h5.bin
+          path: fw-stm32h5.bin
