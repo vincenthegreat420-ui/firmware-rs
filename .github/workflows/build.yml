@@ -17,14 +17,17 @@ jobs:
           ref: blus-dac
           submodules: true
 
-      - run: rustup toolchain install nightly -c rustfmt
+      - name: Setup Rust Nightly
+        run: |
+          rustup toolchain install nightly -c rustfmt
+          rustup target add thumbv8m.main-none-eabihf --toolchain nightly
 
-      - name: Build STM32H5
+      - name: Build STM32H5 (Force Nightly)
         run: |
           cd ./stm32h5
-          cargo build --release
+          # Знак +nightly принудительно запускает свежий компилятор
+          cargo +nightly build --release
           
-          # Используем системный objcopy вместо cargo-binutils
           objcopy -O binary target/thumbv8m.main-none-eabihf/release/stm32h5 fw-stm32h5.bin
           cp fw-stm32h5.bin ../
 
