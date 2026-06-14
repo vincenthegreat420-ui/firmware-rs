@@ -16,11 +16,7 @@ embassy-stm32 = { path = "../embassy/embassy-stm32", features = [
 
 embassy-sync = { path = "../embassy/embassy-sync", features = ["defmt"] }
 
-embassy-executor = { path = "../embassy/embassy-executor", features = [
-    "platform-cortex-m",
-    "executor-thread",
-    "defmt",
-] }
+embassy-executor = { version = "0.8.0", features = ["arch-cortex-m", "executor-thread"] }
 
 embassy-time = { path = "../embassy/embassy-time", features = [
     "defmt",
