@@ -8,7 +8,7 @@ license = "MIT OR Apache-2.0"
 audio = { path = "../audio" }
 embassy-stm32 = { path = "../embassy/embassy-stm32", features = [
     "defmt",
-    "stm32h563zi",
+    "stm32h562vg",
     "memory-x",
     "time-driver-tim5",
     "exti",
