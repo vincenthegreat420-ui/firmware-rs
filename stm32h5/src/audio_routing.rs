@@ -31,8 +31,7 @@ pub struct SaiResources {
 }
 
 fn new_sai<'d>(write_buffer: &'d mut [u32], resources: &'d mut SaiResources) -> Sai<'d, peripherals::SAI1, u32> {
-    let (_, sai) = sai::split_subblocks(resources.sai.reborrow());
-
+    let (sai_a, _) = sai::split_subblocks(resources.sai.reborrow());
     // I2S compatible.
     let mut config = sai::Config::default();
     config.bit_order = BitOrder::MsbFirst;
