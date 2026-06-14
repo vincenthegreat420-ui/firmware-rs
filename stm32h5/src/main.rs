@@ -242,7 +242,6 @@ async fn main(spawner: Spawner) {
         sck_a: p.PE5,
         sd_a: p.PE6,
         fs_a: p.PE4,
-        mclk_a: p.PE2,
         dma_a: p.GPDMA1_CH1,
     };
 
