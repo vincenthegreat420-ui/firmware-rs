@@ -237,12 +237,14 @@ async fn main(spawner: Spawner) {
         cortex_m::peripheral::NVIC::unmask(interrupt::TIM2);
     }
 
+    // Initialize SAI resources
     let sai_resources = SaiResources {
         sai: p.SAI1,
-        sck_b: p.PF8,
-        sd_b: p.PE3,
-        fs_b: p.PF9,
-        dma_b: p.GPDMA1_CH1,
+        sck_a: p.PE5,
+        sd_a: p.PE6,
+        fs_a: p.PE4,
+        mclk_a: p.PE2,
+        dma_a: p.GPDMA1_CH1,
     };
 
     unwrap!(spawner.spawn(blinky_task(
