@@ -16,19 +16,8 @@ jobs:
         with:
           submodules: true
 
-      - run: rustup toolchain install nightly -c rustfmt
-
-      - name: Install dependencies
-        run: cargo install cargo-binutils
-
-      - name: Build STM32H5
+      - name: Show all directories
         run: |
-          cd ./stm32h5
-          cargo build --release
-          cargo objcopy --release -- -O binary ../fw-stm32h5.bin
-
-      - name: Upload firmware binary
-        uses: actions/upload-artifact@v4
-        with:
-          name: stm32h5-firmware
-          path: fw-stm32h5.bin
+          echo "=== LIST OF ALL DIRECTORIES ==="
+          find . -maxdepth 2 -type d
+          echo "==============================="
