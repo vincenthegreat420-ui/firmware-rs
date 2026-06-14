@@ -10,3 +10,4 @@ depending on the specific target platform.
 - For [Blus Mini Mk2](./blus_mini_mk2/)
 
 For Blus hardware, see https://github.com/blus-audio/hardware.
+ 
