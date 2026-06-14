@@ -46,10 +46,10 @@ fn new_sai<'d>(write_buffer: &'d mut [u32], resources: &'d mut SaiResources) -> 
 
     sai::Sai::new_asynchronous(
         sai,
-        resources.sck_b.reborrow(),
-        resources.sd_b.reborrow(),
-        resources.fs_b.reborrow(),
-        resources.dma_b.reborrow(),
+        resources.sck_a.reborrow(),
+        resources.sd_a.reborrow(),
+        resources.fs_a.reborrow(),
+        resources.dma_a.reborrow(),
         write_buffer,
         config,
     )
