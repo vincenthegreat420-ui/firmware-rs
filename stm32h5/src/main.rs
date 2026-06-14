@@ -239,9 +239,9 @@ async fn main(spawner: Spawner) {
 
     let sai_resources = SaiResources {
         sai: p.SAI1,
-        sck_b: p.PE5,
-        sd_b: p.PE6,
-        fs_b: p.PE4,
+        sck_b: p.PB3,
+        sd_b: p.PB5,
+        fs_b: p.PB4,
         dma_b: p.GPDMA1_CH1,
     };
 
