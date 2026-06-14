@@ -27,6 +27,7 @@ pub struct SaiResources {
     pub sck_a: Peri<'static, peripherals::PE5>,
     pub sd_a: Peri<'static, peripherals::PE6>,
     pub fs_a: Peri<'static, peripherals::PE4>,
+    pub mclk_a: Peri<'static, peripherals::PE2>,
     pub dma_a: Peri<'static, peripherals::GPDMA1_CH1>,
 }
 
@@ -45,11 +46,12 @@ fn new_sai<'d>(write_buffer: &'d mut [u32], resources: &'d mut SaiResources) -> 
     config.clock_strobe = ClockStrobe::Falling;
 
     // Вызываем инициализацию, передавая полученный sai_a
-    sai::Sai::new_asynchronous(
+   sai::Sai::new_asynchronous_with_mclk(
         sai_a,                      // <- ИСПРАВЛЕНО: передаем переменную sai_a
         resources.sck_a.reborrow(),
         resources.sd_a.reborrow(),
         resources.fs_a.reborrow(),
+        resources.mclk_a.reborrow(),
         resources.dma_a.reborrow(),
         write_buffer,
         config,
